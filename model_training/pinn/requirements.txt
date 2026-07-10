@@ -1,0 +1,11 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# Correct dependencies
+numpy
+pypdf2
+matplotlib
+scipy
+transformers
+torch
+torchvision
+tqdm
