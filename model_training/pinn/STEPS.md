@@ -75,7 +75,19 @@ python3 train.py --data_path three_body_data.npz --model_type standard --use_pin
 
 ---
 
-## 3. Step 3: Hyperparameter Tuning
+## 3. Step 3: TensorBoard Visualization
+
+Training automatically logs progress metrics (data loss, physics loss, learning rate, and alpha weight) to TensorBoard.
+
+To start TensorBoard and view the logs in your browser:
+```bash
+tensorboard --logdir runs/
+```
+Then, open your browser and navigate to `http://localhost:6006/` to inspect real-time plots of train and validation losses.
+
+---
+
+## 4. Step 4: Hyperparameter Tuning
 
 To find the best network setup, you can experiment by adjusting the following parameters:
 
@@ -97,7 +109,7 @@ To find the best network setup, you can experiment by adjusting the following pa
 
 ---
 
-## 4. Step 4: Model Validation & Visualization
+## 5. Step 5: Model Validation & Visualization
 
 To evaluate a trained checkpoint on a validation trajectory and generate a comparison plot, execute:
 ```bash

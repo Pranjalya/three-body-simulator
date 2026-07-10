@@ -10,6 +10,8 @@ import os
 import torch
 import torch.nn as nn
 import numpy as np
+from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 from model import get_model
 from dataset import get_dataloaders
 
@@ -99,6 +101,7 @@ def main():
     parser.add_argument("--alpha_init", type=float, default=0.001, help="Initial alpha coefficient.")
     parser.add_argument("--alpha_final", type=float, default=0.75, help="Final alpha coefficient.")
     parser.add_argument("--save_path", type=str, default="best_model.pt", help="Path to save the best model checkpoint.")
+    parser.add_argument("--log_dir", type=str, default="runs/three_body_pinn", help="Directory to save TensorBoard logs.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
     args = parser.parse_args()
 
@@ -151,7 +154,12 @@ def main():
     
     start_time = time.time()
     
-    for epoch in range(args.epochs):
+    # Initialize TensorBoard Writer
+    writer = SummaryWriter(log_dir=args.log_dir)
+    print(f"TensorBoard logging enabled. Saving logs to: {args.log_dir}")
+    
+    pbar = tqdm(range(args.epochs), desc="Training PINN")
+    for epoch in pbar:
         model.train()
         
         # Calculate current alpha (linear scheduler)
@@ -215,9 +223,6 @@ def main():
                 val_data_loss += v_data_loss.item() * val_inputs.size(0)
                 
             if use_pinn:
-                # We compute physics loss without grad w.r.t parameters
-                # but we need gradients w.r.t inputs, so we temporarily enable grads.
-                # Since we don't call backward, optimizer weights won't be updated.
                 with torch.enable_grad():
                     v_phys_loss, _ = compute_physics_loss(model, val_inputs)
                 val_physics_loss += v_phys_loss.item() * val_inputs.size(0)
@@ -230,15 +235,30 @@ def main():
         # Update learning rate scheduler
         scheduler.step(val_data_loss)
         
-        # Print logs
-        if (epoch + 1) % 1 == 0 or epoch == 0:
-            current_lr = optimizer.param_groups[0]['lr']
-            print(f"Epoch {epoch+1:03d}/{args.epochs:03d} | "
-                  f"Train Data (MAE): {epoch_data_loss:.6f} | "
-                  f"Train Phys: {epoch_physics_loss:.6f} | "
-                  f"Val Data (MAE): {val_data_loss:.6f} | "
-                  f"Val Phys: {val_physics_loss:.6f} | "
-                  f"Alpha: {alpha:.4f} | LR: {current_lr:.2e}")
+        current_lr = optimizer.param_groups[0]['lr']
+        
+        # Log to TensorBoard
+        writer.add_scalar("Loss/Train_Total", epoch_total_loss, epoch + 1)
+        writer.add_scalar("Loss/Train_Data_MAE", epoch_data_loss, epoch + 1)
+        writer.add_scalar("Loss/Train_Physics_MSE", epoch_physics_loss, epoch + 1)
+        writer.add_scalar("Loss/Val_Data_MAE", val_data_loss, epoch + 1)
+        writer.add_scalar("Loss/Val_Physics_MSE", val_physics_loss, epoch + 1)
+        writer.add_scalar("Loss/Val_Total", val_total_loss, epoch + 1)
+        writer.add_scalar("Params/Alpha", alpha, epoch + 1)
+        writer.add_scalar("Params/Learning_Rate", current_lr, epoch + 1)
+        
+        # Update progress bar
+        pbar.set_postfix({
+            "val_mae": f"{val_data_loss:.5f}",
+            "alpha": f"{alpha:.3f}"
+        })
+        
+        # Print logs (using pbar.write so it doesn't break tqdm line)
+        if (epoch + 1) % 10 == 0 or epoch == 0:
+            pbar.write(f"Epoch {epoch+1:03d}/{args.epochs:03d} | "
+                       f"Train MAE: {epoch_data_loss:.6f} | "
+                       f"Val MAE: {val_data_loss:.6f} | "
+                       f"Alpha: {alpha:.4f} | LR: {current_lr:.2e}")
                   
         # Check for early stopping
         if val_data_loss < best_val_loss:
@@ -255,10 +275,11 @@ def main():
         else:
             patience_counter += 1
             if patience_counter >= early_stopping_patience:
-                print(f"Early stopping triggered! No improvement in validation loss for {early_stopping_patience} epochs.")
+                pbar.write(f"Early stopping triggered! No improvement in validation loss for {early_stopping_patience} epochs.")
                 break
                 
     elapsed = time.time() - start_time
+    writer.close()
     print(f"Training completed in {elapsed:.2f} seconds. Best validation MAE loss: {best_val_loss:.6f}")
     print(f"Best model saved to {args.save_path}")
 
