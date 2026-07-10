@@ -12,6 +12,9 @@ Before running any script, make sure your virtual environment is active and depe
 source .venv/bin/activate
 ```
 
+> [!NOTE]
+> The scripts automatically detect and utilize **NVIDIA GPUs (CUDA)** and **Apple Silicon GPUs (MPS on M1/M2/M3)** for hardware acceleration. If neither is available, it defaults to CPU execution.
+
 ---
 
 ## 1. Step 1: Data Generation
