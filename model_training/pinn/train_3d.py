@@ -101,8 +101,10 @@ def main():
     parser.add_argument("--alpha_init", type=float, default=0.001, help="Initial alpha coefficient.")
     parser.add_argument("--alpha_final", type=float, default=0.75, help="Final alpha coefficient.")
     parser.add_argument("--save_path", type=str, default="best_pinn_model_3d.pt", help="Path to save the best model checkpoint.")
+    parser.add_argument("--use_wandb", type=str, default="true", choices=["true", "false"], help="Enable Weights & Biases logging.")
     parser.add_argument("--wandb_project", type=str, default="three-body-pinn-3d", help="Wandb project name.")
     parser.add_argument("--wandb_name", type=str, default=None, help="Wandb run name.")
+    parser.add_argument("--tensorboard_dir", type=str, default=None, help="Tensorboard directory")
     parser.add_argument("--scheduler_patience", type=int, default=15, help="Epochs to wait for val loss improvement before LR decay.")
     parser.add_argument("--early_stopping_patience", type=int, default=50, help="Epochs to wait for val loss improvement before early stopping.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
@@ -162,13 +164,23 @@ def main():
     
     start_time = time.time()
     
-    # Initialize Weights & Biases
-    wandb.init(
-        project=args.wandb_project,
-        name=args.wandb_name,
-        config=vars(args)
-    )
-    print(f"Weights & Biases logging initialized for project: {args.wandb_project}")
+    use_wandb = args.use_wandb.lower() == "true"
+    
+    # Initialize Weights & Biases if enabled
+    if use_wandb:
+        wandb.init(
+            project=args.wandb_project,
+            name=args.wandb_name,
+            config=vars(args)
+        )
+        print(f"Weights & Biases logging initialized for project: {args.wandb_project}")
+        
+    # Initialize TensorBoard if enabled
+    tb_writer = None
+    if args.tensorboard_dir:
+        from torch.utils.tensorboard import SummaryWriter
+        tb_writer = SummaryWriter(log_dir=args.tensorboard_dir)
+        print(f"TensorBoard logging initialized at: {args.tensorboard_dir}")
     
     pbar = tqdm(range(args.epochs), desc="Training 3D PINN")
     for epoch in pbar:
@@ -258,18 +270,30 @@ def main():
         
         current_lr = optimizer.param_groups[0]['lr']
         
-        # Log to Weights & Biases
-        wandb.log({
-            "epoch": epoch + 1,
-            "loss/train_total": epoch_total_loss,
-            "loss/train_data_mae": epoch_data_loss,
-            "loss/train_physics_mse": epoch_physics_loss,
-            "loss/val_data_mae": val_data_loss,
-            "loss/val_physics_mse": val_physics_loss,
-            "loss/val_total": val_total_loss,
-            "params/alpha": alpha,
-            "params/learning_rate": current_lr
-        })
+        # Log to Weights & Biases if enabled
+        if use_wandb:
+            wandb.log({
+                "epoch": epoch + 1,
+                "loss/train_total": epoch_total_loss,
+                "loss/train_data_mae": epoch_data_loss,
+                "loss/train_physics_mse": epoch_physics_loss,
+                "loss/val_data_mae": val_data_loss,
+                "loss/val_physics_mse": val_physics_loss,
+                "loss/val_total": val_total_loss,
+                "params/alpha": alpha,
+                "params/learning_rate": current_lr
+            })
+            
+        # Log to TensorBoard if enabled
+        if tb_writer is not None:
+            tb_writer.add_scalar("Loss/Train_Total", epoch_total_loss, epoch + 1)
+            tb_writer.add_scalar("Loss/Train_Data_MAE", epoch_data_loss, epoch + 1)
+            tb_writer.add_scalar("Loss/Train_Physics_MSE", epoch_physics_loss, epoch + 1)
+            tb_writer.add_scalar("Loss/Val_Data_MAE", val_data_loss, epoch + 1)
+            tb_writer.add_scalar("Loss/Val_Physics_MSE", val_physics_loss, epoch + 1)
+            tb_writer.add_scalar("Loss/Val_Total", val_total_loss, epoch + 1)
+            tb_writer.add_scalar("Params/Alpha", alpha, epoch + 1)
+            tb_writer.add_scalar("Params/Learning_Rate", current_lr, epoch + 1)
         
         # Update progress bar
         pbar.set_postfix({
@@ -303,7 +327,10 @@ def main():
                 break
                 
     elapsed = time.time() - start_time
-    wandb.finish()
+    if use_wandb:
+        wandb.finish()
+    if tb_writer is not None:
+        tb_writer.close()
     print(f"Training completed in {elapsed:.2f} seconds. Best validation MAE loss: {best_val_loss:.6f}")
     print(f"Best model saved to {args.save_path}")
 
