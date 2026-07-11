@@ -1,6 +1,9 @@
 # Three-Body Problem Simulator: PINN vs Classical Integration
 
-Welcome! This is an interactive, high-performance WebGL simulator designed to visualize and compare predictions of a **Physics-Informed Neural Network (PINN)** against a traditional **Runge-Kutta 4th-Order (RK4)** numerical integrator for the planar chaotic Three-Body Problem. 
+## Live Page
+https://pranjalya.github.io/three-body-simulator
+
+This is an interactive, high-performance WebGL simulator designed to visualize and compare predictions of a **Physics-Informed Neural Network (PINN)** against a traditional **Runge-Kutta 4th-Order (RK4)** numerical integrator for the planar chaotic Three-Body Problem. 
 
 Everything runs entirely on the client-side CPU (Edge Architecture) using isolated multi-threading to guarantee lag-free 60fps rendering in the browser.
 
