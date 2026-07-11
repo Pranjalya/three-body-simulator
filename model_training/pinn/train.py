@@ -10,7 +10,7 @@ import os
 import torch
 import torch.nn as nn
 import numpy as np
-from torch.utils.tensorboard import SummaryWriter
+import wandb
 from tqdm import tqdm
 from model import get_model
 from dataset import get_dataloaders
@@ -101,7 +101,10 @@ def main():
     parser.add_argument("--alpha_init", type=float, default=0.001, help="Initial alpha coefficient.")
     parser.add_argument("--alpha_final", type=float, default=0.75, help="Final alpha coefficient.")
     parser.add_argument("--save_path", type=str, default="best_model.pt", help="Path to save the best model checkpoint.")
-    parser.add_argument("--log_dir", type=str, default="runs/three_body_pinn", help="Directory to save TensorBoard logs.")
+    parser.add_argument("--use_wandb", type=str, default="true", choices=["true", "false"], help="Enable Weights & Biases logging.")
+    parser.add_argument("--wandb_project", type=str, default="three-body-pinn", help="Wandb project name.")
+    parser.add_argument("--wandb_name", type=str, default=None, help="Wandb run name.")
+    parser.add_argument("--tensorboard_dir", type=str, default=None, help="Directory to save TensorBoard logs (disabled if None).")
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
     args = parser.parse_args()
 
@@ -116,6 +119,11 @@ def main():
     else:
         device = torch.device("cpu")
     print(f"Using device: {device}")
+    
+    # Initialize CUDA context early to prevent cuBLAS warning on backward pass
+    if device.type == "cuda":
+        torch.cuda.init()
+        torch.randn(1, device=device)
     
     # Load loaders
     if not os.path.exists(args.data_path):
@@ -154,9 +162,23 @@ def main():
     
     start_time = time.time()
     
-    # Initialize TensorBoard Writer
-    writer = SummaryWriter(log_dir=args.log_dir)
-    print(f"TensorBoard logging enabled. Saving logs to: {args.log_dir}")
+    use_wandb = args.use_wandb.lower() == "true"
+    
+    # Initialize Weights & Biases if enabled
+    if use_wandb:
+        wandb.init(
+            project=args.wandb_project,
+            name=args.wandb_name,
+            config=vars(args)
+        )
+        print(f"Weights & Biases logging initialized for project: {args.wandb_project}")
+    
+    # Initialize TensorBoard if enabled
+    tb_writer = None
+    if args.tensorboard_dir:
+        from torch.utils.tensorboard import SummaryWriter
+        tb_writer = SummaryWriter(log_dir=args.tensorboard_dir)
+        print(f"TensorBoard logging initialized at: {args.tensorboard_dir}")
     
     pbar = tqdm(range(args.epochs), desc="Training PINN")
     for epoch in pbar:
@@ -175,7 +197,8 @@ def main():
         epoch_physics_loss = 0.0
         epoch_total_loss = 0.0
         
-        for inputs, targets in train_loader:
+        train_pbar = tqdm(train_loader, desc=f"Epoch {epoch+1:03d}/{args.epochs:03d}", leave=False)
+        for inputs, targets in train_pbar:
             inputs = inputs.to(device)
             targets = targets.to(device)
             
@@ -201,6 +224,13 @@ def main():
             epoch_data_loss += loss_data.item() * inputs.size(0)
             epoch_physics_loss += loss_physics.item() * inputs.size(0)
             epoch_total_loss += loss.item() * inputs.size(0)
+            
+            # Update batch progress bar info
+            train_pbar.set_postfix({
+                "loss": f"{loss.item():.4f}",
+                "mae": f"{loss_data.item():.4f}",
+                "phys": f"{loss_physics.item():.4f}" if use_pinn else "N/A"
+            })
             
         num_train_samples = len(train_loader.dataset)
         epoch_data_loss /= num_train_samples
@@ -237,15 +267,30 @@ def main():
         
         current_lr = optimizer.param_groups[0]['lr']
         
+        # Log to Weights & Biases
+        if use_wandb:
+            wandb.log({
+                "epoch": epoch + 1,
+                "loss/train_total": epoch_total_loss,
+                "loss/train_data_mae": epoch_data_loss,
+                "loss/train_physics_mse": epoch_physics_loss,
+                "loss/val_data_mae": val_data_loss,
+                "loss/val_physics_mse": val_physics_loss,
+                "loss/val_total": val_total_loss,
+                "params/alpha": alpha,
+                "params/learning_rate": current_lr
+            })
+            
         # Log to TensorBoard
-        writer.add_scalar("Loss/Train_Total", epoch_total_loss, epoch + 1)
-        writer.add_scalar("Loss/Train_Data_MAE", epoch_data_loss, epoch + 1)
-        writer.add_scalar("Loss/Train_Physics_MSE", epoch_physics_loss, epoch + 1)
-        writer.add_scalar("Loss/Val_Data_MAE", val_data_loss, epoch + 1)
-        writer.add_scalar("Loss/Val_Physics_MSE", val_physics_loss, epoch + 1)
-        writer.add_scalar("Loss/Val_Total", val_total_loss, epoch + 1)
-        writer.add_scalar("Params/Alpha", alpha, epoch + 1)
-        writer.add_scalar("Params/Learning_Rate", current_lr, epoch + 1)
+        if tb_writer:
+            tb_writer.add_scalar("loss/train_total", epoch_total_loss, epoch + 1)
+            tb_writer.add_scalar("loss/train_data_mae", epoch_data_loss, epoch + 1)
+            tb_writer.add_scalar("loss/train_physics_mse", epoch_physics_loss, epoch + 1)
+            tb_writer.add_scalar("loss/val_data_mae", val_data_loss, epoch + 1)
+            tb_writer.add_scalar("loss/val_physics_mse", val_physics_loss, epoch + 1)
+            tb_writer.add_scalar("loss/val_total", val_total_loss, epoch + 1)
+            tb_writer.add_scalar("params/alpha", alpha, epoch + 1)
+            tb_writer.add_scalar("params/learning_rate", current_lr, epoch + 1)
         
         # Update progress bar
         pbar.set_postfix({
@@ -279,7 +324,10 @@ def main():
                 break
                 
     elapsed = time.time() - start_time
-    writer.close()
+    if use_wandb:
+        wandb.finish()
+    if tb_writer:
+        tb_writer.close()
     print(f"Training completed in {elapsed:.2f} seconds. Best validation MAE loss: {best_val_loss:.6f}")
     print(f"Best model saved to {args.save_path}")
 

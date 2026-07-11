@@ -1,6 +1,3 @@
---extra-index-url https://download.pytorch.org/whl/cpu
-
-# Correct dependencies
 numpy
 pypdf2
 matplotlib
@@ -9,4 +6,4 @@ transformers
 torch
 torchvision
 tqdm
-tensorboard
+wandb

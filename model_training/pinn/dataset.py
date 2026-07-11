@@ -71,7 +71,9 @@ def get_dataloaders(data_path, batch_size=5000, train_ratio=0.95, seed=42):
     train_dataset = ThreeBodyDataset(data_path, sim_indices=train_indices)
     val_dataset = ThreeBodyDataset(data_path, sim_indices=val_indices)
     
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    # Enable pin_memory for faster host-to-device transfers on CUDA GPUs
+    pin_memory = torch.cuda.is_available()
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, pin_memory=pin_memory)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, pin_memory=pin_memory)
     
     return train_loader, val_loader

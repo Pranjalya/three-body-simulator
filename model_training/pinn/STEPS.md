@@ -75,15 +75,19 @@ python3 train.py --data_path three_body_data.npz --model_type standard --use_pin
 
 ---
 
-## 3. Step 3: TensorBoard Visualization
+## 3. Step 3: Weights & Biases (Wandb) Visualization
 
-Training automatically logs progress metrics (data loss, physics loss, learning rate, and alpha weight) to TensorBoard.
+Training automatically logs progress metrics (data loss, physics loss, learning rate, and alpha weight) to Weights & Biases (Wandb).
 
-To start TensorBoard and view the logs in your browser:
+1. Before training, log into your Wandb account from the terminal:
 ```bash
-tensorboard --logdir runs/
+wandb login
 ```
-Then, open your browser and navigate to `http://localhost:6006/` to inspect real-time plots of train and validation losses.
+2. When running the training command, it will automatically initialize a run in your project (default project name is `three-body-pinn`). You can customize the project and run name:
+```bash
+python3 train.py ... --wandb_project my-pinn-project --wandb_name pinn-resnet-v1
+```
+3. Open the link printed in the terminal to inspect real-time charts, loss curves, and parameter sweeps in your Wandb dashboard.
 
 ---
 

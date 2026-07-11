@@ -4,3 +4,5 @@ __pycache__
 *.pt
 logs/
 runs/
+wandb/
+.env
