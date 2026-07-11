@@ -1,6 +1,6 @@
 """
-Training Pipeline for Three-Body Physics-Informed Neural Network (PINN).
-Defines loss calculations combining coordinates data loss (MAE) and physics residual
+Training Pipeline for 3D Three-Body Physics-Informed Neural Network (PINN).
+Defines loss calculations combining 3D coordinate data loss (MAE) and 3D physics residual
 loss (MSE), scheduling weights dynamically, and managing gradient optimization.
 """
 
@@ -15,23 +15,23 @@ from tqdm import tqdm
 from model import get_model
 from dataset import get_dataloaders
 
-def compute_physics_loss(model, inputs, eps=1e-8):
+def compute_physics_loss_3d(model, inputs, eps=1e-8):
     """
-    Computes the physics residual loss for the planar 3-body system.
-    inputs: shape (batch_size, 7) - [x1_0, z1_0, x2_0, z2_0, x3_0, z3_0, t]
+    Computes the physics residual loss for the 3D 3-body system.
+    inputs: shape (batch_size, 10) - [x1_0, y1_0, z1_0, x2_0, y2_0, z2_0, x3_0, y3_0, z3_0, t]
     """
     # Clone inputs and set requires_grad=True on the time component t
-    init_pos = inputs[:, :6].clone()
-    t = inputs[:, 6:7].clone().requires_grad_(True)
+    init_pos = inputs[:, :9].clone()
+    t = inputs[:, 9:10].clone().requires_grad_(True)
     x_in = torch.cat([init_pos, t], dim=1)
     
     # Forward pass
-    u_pred = model(x_in)  # shape (batch_size, 12)
+    u_pred = model(x_in)  # shape (batch_size, 18)
     
     # Compute derivative of each output component w.r.t t
-    # u_pred: [x1, z1, x2, z2, x3, z3, vx1, vz1, vx2, vz2, vx3, vz3]
+    # u_pred: [x1, y1, z1, x2, y2, z2, x3, y3, z3, vx1, vy1, vz1, vx2, vy2, vz2, vx3, vy3, vz3]
     du_dt = torch.zeros_like(u_pred)
-    for i in range(12):
+    for i in range(18):
         grad_outputs = torch.zeros_like(u_pred)
         grad_outputs[:, i] = 1.0
         grad = torch.autograd.grad(
@@ -44,25 +44,25 @@ def compute_physics_loss(model, inputs, eps=1e-8):
         )[0]
         du_dt[:, i] = grad[:, 0]
         
-    pos = u_pred[:, :6]
-    vel = u_pred[:, 6:]
+    pos = u_pred[:, :9]
+    vel = u_pred[:, 9:]
     
-    dpos_dt = du_dt[:, :6]
-    dvel_dt = du_dt[:, 6:]
+    dpos_dt = du_dt[:, :9]
+    dvel_dt = du_dt[:, 9:]
     
     # 1. Kinematic residual: dpos/dt - vel
     residual_pos = dpos_dt - vel
     
     # 2. Dynamic residual: dvel/dt - acc
-    r1 = pos[:, 0:2]
-    r2 = pos[:, 2:4]
-    r3 = pos[:, 4:6]
+    r1 = pos[:, 0:3]
+    r2 = pos[:, 3:6]
+    r3 = pos[:, 6:9]
     
     r12 = r1 - r2
     r13 = r1 - r3
     r23 = r2 - r3
     
-    # Euclidean distance
+    # 3D Euclidean distance
     d12 = torch.norm(r12, p=2, dim=1, keepdim=True)
     d13 = torch.norm(r13, p=2, dim=1, keepdim=True)
     d23 = torch.norm(r23, p=2, dim=1, keepdim=True)
@@ -86,13 +86,13 @@ def compute_physics_loss(model, inputs, eps=1e-8):
     return loss_physics, u_pred
 
 def main():
-    parser = argparse.ArgumentParser(description="Train a PINN/DNN model for the three-body problem.")
-    parser.add_argument("--data_path", type=str, default="three_body_data.npz", help="Path to the dataset file.")
-    parser.add_argument("--model_type", type=str, default="resnet", choices=["resnet", "standard"], help="Model architecture.")
-    parser.add_argument("--depth", type=int, default=12, help="Network depth.")
-    parser.add_argument("--width", type=int, default=256, help="Network width.")
-    parser.add_argument("--activation", type=str, default="relu", help="Activation function.")
-    parser.add_argument("--epochs", type=int, default=500, help="Max epochs.")
+    parser = argparse.ArgumentParser(description="Train a 3D PINN/DNN model for the three-body problem.")
+    parser.add_argument("--data_path", type=str, default="three_body_data_3d.npz", help="Path to the 3D dataset file.")
+    parser.add_argument("--model_type", type=str, default="resnet", choices=["dnn", "resnet"], help="Model type.")
+    parser.add_argument("--depth", type=int, default=12, help="Number of blocks or layers.")
+    parser.add_argument("--width", type=int, default=256, help="Width of hidden layers.")
+    parser.add_argument("--activation", type=str, default="relu", choices=["relu", "tanh", "gelu", "silu"], help="Activation function.")
+    parser.add_argument("--epochs", type=int, default=500, help="Number of training epochs.")
     parser.add_argument("--batch_size", type=int, default=5000, help="Batch size.")
     parser.add_argument("--lr", type=float, default=7.5e-4, help="Learning rate.")
     parser.add_argument("--weight_decay", type=float, default=1e-5, help="Weight decay L2 regularization.")
@@ -100,9 +100,8 @@ def main():
     parser.add_argument("--use_pinn", type=str, default="true", choices=["true", "false"], help="Enable physics loss.")
     parser.add_argument("--alpha_init", type=float, default=0.001, help="Initial alpha coefficient.")
     parser.add_argument("--alpha_final", type=float, default=0.75, help="Final alpha coefficient.")
-    parser.add_argument("--save_path", type=str, default="best_model.pt", help="Path to save the best model checkpoint.")
-    parser.add_argument("--use_wandb", type=str, default="true", choices=["true", "false"], help="Enable Weights & Biases logging.")
-    parser.add_argument("--wandb_project", type=str, default="three-body-pinn", help="Wandb project name.")
+    parser.add_argument("--save_path", type=str, default="best_pinn_model_3d.pt", help="Path to save the best model checkpoint.")
+    parser.add_argument("--wandb_project", type=str, default="three-body-pinn-3d", help="Wandb project name.")
     parser.add_argument("--wandb_name", type=str, default=None, help="Wandb run name.")
     parser.add_argument("--scheduler_patience", type=int, default=15, help="Epochs to wait for val loss improvement before LR decay.")
     parser.add_argument("--early_stopping_patience", type=int, default=50, help="Epochs to wait for val loss improvement before early stopping.")
@@ -128,16 +127,16 @@ def main():
     
     # Load loaders
     if not os.path.exists(args.data_path):
-        raise FileNotFoundError(f"Dataset file {args.data_path} not found. Please run generate_data.py first.")
+        raise FileNotFoundError(f"Dataset file {args.data_path} not found. Please run generate_data_3d.py first.")
         
     train_loader, val_loader = get_dataloaders(args.data_path, batch_size=args.batch_size, seed=args.seed)
     print(f"Data loaders created. Train samples: {len(train_loader.dataset)}, Val samples: {len(val_loader.dataset)}")
     
-    # Build model
+    # Build model (3D: 10 input dims, 18 output dims)
     model = get_model(
         model_type=args.model_type,
-        input_dim=7,
-        output_dim=12,
+        input_dim=10,
+        output_dim=18,
         hidden_dim=args.width,
         depth=args.depth,
         activation_name=args.activation
@@ -159,27 +158,19 @@ def main():
     
     best_val_loss = float("inf")
     patience_counter = 0
-    early_stopping_patience = args.early_stopping_patience   
-    use_wandb = args.use_wandb.lower() == "true"
-    
-    # Initialize Weights & Biases if enabled
-    if use_wandb:
-        wandb.init(
-            project=args.wandb_project,
-            name=args.wandb_name,
-            config=vars(args)
-        )
-        print(f"Weights & Biases logging initialized for project: {args.wandb_project}")
-    
-    # Initialize TensorBoard if enabled
-    tb_writer = None
-    if args.tensorboard_dir:
-        from torch.utils.tensorboard import SummaryWriter
-        tb_writer = SummaryWriter(log_dir=args.tensorboard_dir)
-        print(f"TensorBoard logging initialized at: {args.tensorboard_dir}")
+    early_stopping_patience = args.early_stopping_patience
     
     start_time = time.time()
-    pbar = tqdm(range(args.epochs), desc="Training PINN")
+    
+    # Initialize Weights & Biases
+    wandb.init(
+        project=args.wandb_project,
+        name=args.wandb_name,
+        config=vars(args)
+    )
+    print(f"Weights & Biases logging initialized for project: {args.wandb_project}")
+    
+    pbar = tqdm(range(args.epochs), desc="Training 3D PINN")
     for epoch in pbar:
         model.train()
         
@@ -196,6 +187,7 @@ def main():
         epoch_physics_loss = 0.0
         epoch_total_loss = 0.0
         
+        # Create a batch-level progress bar inside each epoch
         train_pbar = tqdm(train_loader, desc=f"Epoch {epoch+1:03d}/{args.epochs:03d}", leave=False)
         for inputs, targets in train_pbar:
             inputs = inputs.to(device)
@@ -204,7 +196,7 @@ def main():
             optimizer.zero_grad()
             
             if use_pinn:
-                loss_physics, u_pred = compute_physics_loss(model, inputs)
+                loss_physics, u_pred = compute_physics_loss_3d(model, inputs)
                 loss_data = torch.mean(torch.abs(u_pred - targets))  # MAE Loss
                 loss = loss_data + alpha * loss_physics
             else:
@@ -253,7 +245,7 @@ def main():
                 
             if use_pinn:
                 with torch.enable_grad():
-                    v_phys_loss, _ = compute_physics_loss(model, val_inputs)
+                    v_phys_loss, _ = compute_physics_loss_3d(model, val_inputs)
                 val_physics_loss += v_phys_loss.item() * val_inputs.size(0)
                 
         num_val_samples = len(val_loader.dataset)
@@ -267,29 +259,17 @@ def main():
         current_lr = optimizer.param_groups[0]['lr']
         
         # Log to Weights & Biases
-        if use_wandb:
-            wandb.log({
-                "epoch": epoch + 1,
-                "loss/train_total": epoch_total_loss,
-                "loss/train_data_mae": epoch_data_loss,
-                "loss/train_physics_mse": epoch_physics_loss,
-                "loss/val_data_mae": val_data_loss,
-                "loss/val_physics_mse": val_physics_loss,
-                "loss/val_total": val_total_loss,
-                "params/alpha": alpha,
-                "params/learning_rate": current_lr
-            })
-            
-        # Log to TensorBoard
-        if tb_writer:
-            tb_writer.add_scalar("loss/train_total", epoch_total_loss, epoch + 1)
-            tb_writer.add_scalar("loss/train_data_mae", epoch_data_loss, epoch + 1)
-            tb_writer.add_scalar("loss/train_physics_mse", epoch_physics_loss, epoch + 1)
-            tb_writer.add_scalar("loss/val_data_mae", val_data_loss, epoch + 1)
-            tb_writer.add_scalar("loss/val_physics_mse", val_physics_loss, epoch + 1)
-            tb_writer.add_scalar("loss/val_total", val_total_loss, epoch + 1)
-            tb_writer.add_scalar("params/alpha", alpha, epoch + 1)
-            tb_writer.add_scalar("params/learning_rate", current_lr, epoch + 1)
+        wandb.log({
+            "epoch": epoch + 1,
+            "loss/train_total": epoch_total_loss,
+            "loss/train_data_mae": epoch_data_loss,
+            "loss/train_physics_mse": epoch_physics_loss,
+            "loss/val_data_mae": val_data_loss,
+            "loss/val_physics_mse": val_physics_loss,
+            "loss/val_total": val_total_loss,
+            "params/alpha": alpha,
+            "params/learning_rate": current_lr
+        })
         
         # Update progress bar
         pbar.set_postfix({
@@ -303,7 +283,7 @@ def main():
                        f"Train MAE: {epoch_data_loss:.6f} | "
                        f"Val MAE: {val_data_loss:.6f} | "
                        f"Alpha: {alpha:.4f} | LR: {current_lr:.2e}")
-                  
+                   
         # Check for early stopping
         if val_data_loss < best_val_loss:
             best_val_loss = val_data_loss
@@ -323,10 +303,7 @@ def main():
                 break
                 
     elapsed = time.time() - start_time
-    if use_wandb:
-        wandb.finish()
-    if tb_writer:
-        tb_writer.close()
+    wandb.finish()
     print(f"Training completed in {elapsed:.2f} seconds. Best validation MAE loss: {best_val_loss:.6f}")
     print(f"Best model saved to {args.save_path}")
 

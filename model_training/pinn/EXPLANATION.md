@@ -1,8 +1,4 @@
-# Explanation: How the Physics-Informed Neural Network (PINN) Works
-
-This document explains the concepts, physics, and architecture behind our implementation in simpler terms.
-
----
+# How the Physics-Informed Neural Network (PINN) Works
 
 ## 🌌 The Core Problem: The Three-Body Problem
 

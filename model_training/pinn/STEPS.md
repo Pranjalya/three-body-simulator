@@ -120,6 +120,11 @@ To evaluate a trained checkpoint on a validation trajectory and generate a compa
 python3 -c "import sys; sys.path.append('.'); from utils import evaluate_and_plot; evaluate_and_plot('best_pinn_model.pt', 'three_body_data.npz', sim_idx=0, save_dir='plots')"
 ```
 
+Eventual training script (T4 16 GB VRAM):
+```
+python3 train.py --data_path three_body_data_full.npz --model_type resnet --depth 12 --width 256 --activation relu --epochs 500 --batch_size 50000 --lr 1.5e-3 --weight_decay 1e-5 --clip_grad 1.0 --use_pinn true --alpha_init 0.001 --alpha_final 0.75 --save_path best_pinn_model.pt --use_wandb true --wandb_project three-body-simulator --wandb_name three-body-simulator-pinn-resnet
+```
+
 ### Outputs of Validation
 - **Console Log**: Prints the relative Mean Absolute Error (MAE) and the energy conservation deviation for both the true integration and the model's predictions.
 - **Plot**: Saves a plot at `plots/sim_{sim_idx}_comparison.png` containing:
@@ -142,6 +147,6 @@ This prints the final coordinates/velocities of the bodies and saves a plot of t
 ### B. Export Model to ONNX for Browser Use
 To convert your trained PyTorch checkpoint (`best_pinn_model.pt`) into an ONNX file (`pinn_model.onnx`):
 ```bash
-python3 inference.py --model_path best_pinn_model.pt --export_onnx pinn_model.onnx --plot_path ""
+python3 inference.py --model_path best_pinn_model.pt --export_onnx pinn_model_2d.onnx --plot_path ""
 ```
 The resulting `pinn_model.onnx` can be directly loaded in web browsers using **ONNX Runtime Web** or converted to **TFJS/TFLite** formats for client-side execution.

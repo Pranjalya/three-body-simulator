@@ -22,26 +22,34 @@ class ThreeBodyDataset(Dataset):
         self.num_sims = y0.shape[0]
         self.num_steps = len(t)
         
-        # Extract initial positions (num_sims, 6)
-        init_pos = y0[:, :6]
+        # Determine dimension dynamically based on y0 shape (18 for 3D, 12 for 2D)
+        if y0.shape[1] == 18:
+            pos_dim = 9
+            input_dim = 10
+            output_dim = 18
+        else:
+            pos_dim = 6
+            input_dim = 7
+            output_dim = 12
+            
+        # Extract initial positions
+        init_pos = y0[:, :pos_dim]
         
         # Vectorized expansion of initial positions across all time steps
-        # Shape: (num_sims, num_steps, 6)
         init_pos_repeated = np.repeat(init_pos[:, np.newaxis, :], self.num_steps, axis=1)
         
         # Vectorized expansion of time steps across all simulations
-        # Shape: (num_sims, num_steps, 1)
         t_grid = np.repeat(t[np.newaxis, :, np.newaxis], self.num_sims, axis=0)
         
-        # Concat positions and time to form input of shape (num_sims, num_steps, 7)
+        # Concat positions and time
         inputs_np = np.concatenate([init_pos_repeated, t_grid], axis=-1)
         
-        # Transpose targets to shape (num_sims, num_steps, 12)
+        # Transpose targets to shape (num_sims, num_steps, output_dim)
         targets_np = np.transpose(y, (0, 2, 1))
         
-        # Reshape to 2D matrices: (num_sims * num_steps, 7) and (num_sims * num_steps, 12)
-        self.inputs = torch.tensor(inputs_np.reshape(-1, 7), dtype=torch.float32)
-        self.targets = torch.tensor(targets_np.reshape(-1, 12), dtype=torch.float32)
+        # Reshape to 2D matrices
+        self.inputs = torch.tensor(inputs_np.reshape(-1, input_dim), dtype=torch.float32)
+        self.targets = torch.tensor(targets_np.reshape(-1, output_dim), dtype=torch.float32)
         
     def __len__(self):
         return len(self.inputs)
