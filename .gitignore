@@ -6,3 +6,5 @@ logs/
 runs/
 wandb/
 .env
+*.onnx
+*.onnx.data

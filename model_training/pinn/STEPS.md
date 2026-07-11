@@ -125,3 +125,23 @@ python3 -c "import sys; sys.path.append('.'); from utils import evaluate_and_plo
 - **Plot**: Saves a plot at `plots/sim_{sim_idx}_comparison.png` containing:
   1. **Trajectory Plot**: The orbits of all three bodies in the X-Z plane (ground truth vs. prediction).
   2. **Energy Conservation Curve**: Total system energy, potential energy, and kinetic energy over time. An ideal prediction preserves flat total energy over time.
+
+---
+
+## 6. Step 6: Inference & ONNX Export (Browser Deployment)
+
+We have created an all-in-one `inference.py` script to run trajectory predictions on arbitrary new initial positions and export the trained model directly to **ONNX** format:
+
+### A. Run Trajectory Inference & Save Plot
+You can predict the trajectory of the 3-body system given a new starting position for Body 2 (e.g. $X=-0.2, Z=0.5$):
+```bash
+python3 inference.py --model_path best_pinn_model.pt --x2 -0.2 --z2 0.5 --plot_path my_predicted_orbit.png --export_onnx ""
+```
+This prints the final coordinates/velocities of the bodies and saves a plot of the trajectories to `my_predicted_orbit.png`.
+
+### B. Export Model to ONNX for Browser Use
+To convert your trained PyTorch checkpoint (`best_pinn_model.pt`) into an ONNX file (`pinn_model.onnx`):
+```bash
+python3 inference.py --model_path best_pinn_model.pt --export_onnx pinn_model.onnx --plot_path ""
+```
+The resulting `pinn_model.onnx` can be directly loaded in web browsers using **ONNX Runtime Web** or converted to **TFJS/TFLite** formats for client-side execution.
