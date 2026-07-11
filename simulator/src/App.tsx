@@ -41,6 +41,8 @@ export default function App() {
   const [showPhysics, setShowPhysics] = useState<boolean>(true);
   const [showAI, setShowAI] = useState<boolean>(true);
   const [showExplanation, setShowExplanation] = useState<boolean>(false);
+  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState<boolean>(false);
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState<boolean>(false);
 
   // ── Worker refs ──
   const physicsWorkerRef = useRef<Worker | null>(null);
@@ -244,33 +246,67 @@ export default function App() {
       </div>
 
       {/* ══ Top bar ══ */}
-      <header className="absolute top-0 inset-x-0 p-4 z-10 flex flex-col md:flex-row justify-between items-center bg-gradient-to-b from-[#07080d]/85 to-transparent pointer-events-none">
+      <header className="absolute top-0 inset-x-0 p-3 sm:p-4 z-10 flex justify-between items-center bg-gradient-to-b from-[#07080d]/90 via-[#07080d]/60 to-transparent pointer-events-none">
         <div className="pointer-events-auto">
-          <div className="flex items-center space-x-2">
-            <Activity className="h-6 w-6 text-cyan-400 animate-pulse" />
-            <h1 className="font-orbitron font-extrabold tracking-wider text-lg md:text-xl bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-white to-pink-500">
+          <div className="flex items-center space-x-1.5 sm:space-x-2">
+            <Activity className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-cyan-400 animate-pulse flex-shrink-0" />
+            <h1 className="font-orbitron font-extrabold tracking-wider text-[11px] xs:text-xs sm:text-sm md:text-xl bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-white to-pink-500">
               PINN THREE-BODY CHAOS VECTOR
             </h1>
           </div>
-          <p className="text-[11px] text-gray-400 mt-0.5 uppercase tracking-widest font-mono">
+          <p className="text-[8px] xs:text-[9px] sm:text-[10px] md:text-[11px] text-gray-400 mt-0.5 uppercase tracking-widest font-mono">
             ONNX WASM (t≤10s) &nbsp;·&nbsp; RK4 Physics (t≤{tMax}s) &nbsp;·&nbsp; m1={m1.toFixed(1)} m2={m2.toFixed(1)} m3={m3.toFixed(1)}
           </p>
         </div>
-        <div className="mt-3 md:mt-0 pointer-events-auto">
+        <div className="pointer-events-auto flex-shrink-0 ml-2">
           <button onClick={() => setShowExplanation(true)}
-            className="flex items-center space-x-2 px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-900/60 hover:bg-gray-800 text-xs font-semibold uppercase text-gray-300 transition">
-            <Info className="h-4 w-4 text-cyan-400" /><span>Architecture</span>
+            className="flex items-center space-x-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-gray-700 bg-gray-900/60 hover:bg-gray-800 text-[10px] sm:text-xs font-semibold uppercase text-gray-300 transition">
+            <Info className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-cyan-400" />
+            <span className="hidden xs:inline">Architecture</span>
           </button>
         </div>
       </header>
 
+      {/* ══ Mobile Panel Toggle Buttons ══ */}
+      <div className="absolute top-20 left-4 z-20 md:hidden flex flex-col space-y-2 pointer-events-auto">
+        <button onClick={() => { setIsLeftPanelOpen(p => !p); setIsRightPanelOpen(false); }}
+          className={`p-2.5 rounded-xl border border-gray-800 bg-gray-900/90 text-gray-300 shadow-xl transition-all active:scale-95 ${isLeftPanelOpen ? 'text-cyan-400 border-cyan-500/40 bg-cyan-950/70' : 'hover:bg-gray-800'}`}>
+          <Sliders className="h-5 w-5" />
+        </button>
+      </div>
+      <div className="absolute top-20 right-4 z-20 md:hidden flex flex-col space-y-2 pointer-events-auto">
+        <button onClick={() => { setIsRightPanelOpen(p => !p); setIsLeftPanelOpen(false); }}
+          className={`p-2.5 rounded-xl border border-gray-800 bg-gray-900/90 text-gray-300 shadow-xl transition-all active:scale-95 ${isRightPanelOpen ? 'text-pink-400 border-pink-500/40 bg-pink-950/70' : 'hover:bg-gray-800'}`}>
+          <Cpu className="h-5 w-5" />
+        </button>
+      </div>
+
       {/* ══ LEFT SIDEBAR — Initial State & Mass Controls ══ */}
-      <section className="absolute top-24 left-4 w-72 max-h-[calc(100vh-13rem)] overflow-y-auto z-10 glass-panel rounded-xl p-4 flex flex-col space-y-4">
+      <section className={`
+        ${isLeftPanelOpen ? 'flex font-sans' : 'hidden'}
+        md:flex
+        fixed md:absolute
+        top-20 md:top-24
+        left-4
+        w-[calc(100vw-2rem)] sm:w-72
+        max-h-[calc(100vh-12rem)] md:max-h-[calc(100vh-13rem)]
+        overflow-y-auto
+        z-30 md:z-10
+        glass-panel rounded-xl p-4
+        flex-col space-y-4
+        transition-all duration-200
+      `}>
 
         {/* Header */}
-        <div className="flex items-center space-x-2">
-          <Sliders className="h-4 w-4 text-cyan-400" />
-          <h2 className="font-orbitron font-semibold text-sm tracking-wider uppercase">Initial State</h2>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Sliders className="h-4 w-4 text-cyan-400" />
+            <h2 className="font-orbitron font-semibold text-sm tracking-wider uppercase">Initial State</h2>
+          </div>
+          <button onClick={() => setIsLeftPanelOpen(false)}
+            className="md:hidden p-1 rounded-lg border border-gray-800 bg-gray-900/60 hover:bg-gray-800 text-gray-400 hover:text-white transition">
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
         <p className="text-[11px] text-gray-400 leading-relaxed -mt-2">
@@ -365,12 +401,31 @@ export default function App() {
       </section>
 
       {/* ══ RIGHT SIDEBAR wrapper ══ */}
-      <div className="absolute top-24 right-4 w-72 z-10 flex flex-col space-y-4 pointer-events-none">
+      <div className={`
+        ${isRightPanelOpen ? 'flex font-sans' : 'hidden'}
+        md:flex
+        fixed md:absolute
+        top-20 md:top-24
+        right-4
+        w-[calc(100vw-2rem)] sm:w-72
+        max-h-[calc(100vh-12rem)] md:max-h-none
+        overflow-y-auto md:overflow-visible
+        z-30 md:z-10
+        flex-col space-y-4
+        ${isRightPanelOpen ? 'pointer-events-auto' : 'pointer-events-none md:pointer-events-none'}
+        transition-all duration-200
+      `}>
         {/* Telemetry Panel */}
-        <section className="pointer-events-auto glass-panel rounded-xl p-4 flex flex-col space-y-4 max-h-[calc(100vh-21rem)] overflow-y-auto">
-          <div className="flex items-center space-x-2">
-            <Cpu className="h-4 w-4 text-pink-400" />
-            <h2 className="font-orbitron font-semibold text-sm tracking-wider uppercase">Worker Telemetry</h2>
+        <section className="pointer-events-auto glass-panel rounded-xl p-4 flex flex-col space-y-4 max-h-[calc(100vh-21rem)] md:max-h-none overflow-y-auto">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Cpu className="h-4 w-4 text-pink-400" />
+              <h2 className="font-orbitron font-semibold text-sm tracking-wider uppercase">Worker Telemetry</h2>
+            </div>
+            <button onClick={() => setIsRightPanelOpen(false)}
+              className="md:hidden p-1 rounded-lg border border-gray-800 bg-gray-900/60 hover:bg-gray-800 text-gray-400 hover:text-white transition">
+              <X className="h-4 w-4" />
+            </button>
           </div>
 
           {/* Thread latency cards */}
@@ -491,25 +546,11 @@ export default function App() {
 
       {/* ══ Bottom Playback Bar ══ */}
       <footer className="absolute bottom-4 inset-x-0 z-10 flex justify-center px-4 pointer-events-none">
-        <div className="pointer-events-auto glass-panel rounded-xl px-5 py-3 flex flex-col md:flex-row items-center space-y-3 md:space-y-0 md:space-x-5 w-full max-w-2xl glow-blue">
+        <div className="pointer-events-auto glass-panel rounded-xl px-4 py-2.5 sm:px-5 sm:py-3 flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-5 w-full max-w-2xl glow-blue">
 
-          {/* Play/Pause & Reset */}
-          <div className="flex items-center space-x-3 flex-shrink-0">
-            <button onClick={() => setIsPlaying(p => !p)}
-              className="p-2.5 rounded-full bg-cyan-600 hover:bg-cyan-500 text-white transition">
-              {isPlaying
-                ? <Pause className="h-4 w-4 fill-current" />
-                : <Play className="h-4 w-4 fill-current" />}
-            </button>
-            <button onClick={() => { setTimeIndex(0); setIsPlaying(false); }}
-              className="p-2 rounded-lg border border-gray-700 bg-gray-900/60 hover:bg-gray-800 text-gray-300 transition">
-              <RotateCcw className="h-4 w-4" />
-            </button>
-          </div>
-
-          {/* Timeline scrubber */}
-          <div className="flex-1 w-full flex items-center space-x-2.5">
-            <span className="font-mono text-[11px] text-cyan-400 w-12 text-right flex-shrink-0">{formattedTime}s</span>
+          {/* Timeline scrubber (ordered first on mobile, middle on desktop) */}
+          <div className="flex-1 w-full flex items-center space-x-2.5 order-1 md:order-2">
+            <span className="font-mono text-[10px] sm:text-[11px] text-cyan-400 w-10 sm:w-12 text-right flex-shrink-0">{formattedTime}s</span>
             <div className="relative flex-1">
               <input type="range" min="0" max={totalSteps - 1} step="1" value={timeIndex}
                 onChange={e => { setTimeIndex(parseInt(e.target.value)); setIsPlaying(false); }}
@@ -523,18 +564,36 @@ export default function App() {
                 </div>
               )}
             </div>
-            <span className="font-mono text-[11px] text-gray-400 w-12 flex-shrink-0">{tMax}s</span>
+            <span className="font-mono text-[10px] sm:text-[11px] text-gray-400 w-10 sm:w-12 flex-shrink-0">{tMax}s</span>
           </div>
 
-          {/* Speed selector */}
-          <div className="flex items-center space-x-1 border border-gray-800 bg-gray-950/40 rounded-lg p-1 flex-shrink-0">
-            {([0.5, 1, 2, 4] as const).map(s => (
-              <button key={s} onClick={() => setSpeed(s)}
-                className={`px-2 py-1 text-[10px] font-mono rounded font-semibold transition ${speed === s ? 'bg-cyan-950 border border-cyan-800 text-cyan-400' : 'text-gray-400 hover:text-gray-200'}`}>
-                {s}×
+          {/* Controls & Speed Selector Group (displays side-by-side on mobile, invisible wrapper on desktop) */}
+          <div className="flex items-center justify-between w-full md:w-auto md:contents order-2 md:order-none">
+            {/* Play/Pause & Reset */}
+            <div className="flex items-center space-x-3 flex-shrink-0 md:order-1">
+              <button onClick={() => setIsPlaying(p => !p)}
+                className="p-2 sm:p-2.5 rounded-full bg-cyan-600 hover:bg-cyan-500 text-white transition active:scale-95">
+                {isPlaying
+                  ? <Pause className="h-3.5 w-3.5 sm:h-4 sm:w-4 fill-current" />
+                  : <Play className="h-3.5 w-3.5 sm:h-4 sm:w-4 fill-current" />}
               </button>
-            ))}
+              <button onClick={() => { setTimeIndex(0); setIsPlaying(false); }}
+                className="p-1.5 sm:p-2 rounded-lg border border-gray-700 bg-gray-900/60 hover:bg-gray-800 text-gray-300 transition active:scale-95">
+                <RotateCcw className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              </button>
+            </div>
+
+            {/* Speed selector */}
+            <div className="flex items-center space-x-1 border border-gray-800 bg-gray-950/40 rounded-lg p-0.5 sm:p-1 flex-shrink-0 md:order-3">
+              {([0.5, 1, 2, 4] as const).map(s => (
+                <button key={s} onClick={() => setSpeed(s)}
+                  className={`px-1.5 py-0.5 sm:px-2 sm:py-1 text-[9px] sm:text-[10px] font-mono rounded font-semibold transition ${speed === s ? 'bg-cyan-950 border border-cyan-800 text-cyan-400' : 'text-gray-400 hover:text-gray-200'}`}>
+                  {s}×
+                </button>
+              ))}
+            </div>
           </div>
+
         </div>
       </footer>
 

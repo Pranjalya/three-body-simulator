@@ -254,7 +254,7 @@ export const OrbitCanvas = (props: OrbitCanvasProps) => {
   const [isDragging, setIsDragging] = useState(false);
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full touch-none select-none">
       <Canvas camera={{ position: [0, 5.5, 5.5], fov: 48 }} gl={{ antialias: true }}>
         <SceneContent {...props} isDragging={isDragging} setIsDragging={setIsDragging} />
 
