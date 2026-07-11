@@ -14,6 +14,10 @@ let session: ort.InferenceSession | null = null;
 let isInitializing = false;
 const initQueue: (() => void)[] = [];
 
+// Dynamic model paths set via init message (defaults to root paths for safety)
+let modelUrl = '/pinn_model_2d_v2.onnx';
+let modelDataUrl = '/pinn_model_2d_v2.onnx.data';
+
 // Initialize the ONNX session
 async function initSession(): Promise<ort.InferenceSession> {
   if (session) return session;
@@ -34,18 +38,14 @@ async function initSession(): Promise<ort.InferenceSession> {
     ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/';
     ort.env.wasm.numThreads = 1; // Use single-threaded wasm — avoids JSEP/SharedArrayBuffer requirement
 
-    // Create inference session
-    // The ONNX model is copied to the public/ folder of Vite, so it is served at root '/pinn_model_2d_v2.onnx'
-    // The external weights file (.onnx.data) MUST be passed explicitly — the WASM backend cannot
-    // auto-resolve sibling data files over HTTP the way the native runtime can.
-    session = await ort.InferenceSession.create('/pinn_model_2d_v2.onnx', {
+    session = await ort.InferenceSession.create(modelUrl, {
       executionProviders: ['wasm'],
       externalData: [
         {
           // 'path' must match the name stored inside the .onnx protobuf (usually just the filename)
           path: 'pinn_model_2d_v2.onnx.data',
           // 'data' is the URL from which ort-web will fetch the binary weights blob
-          data: '/pinn_model_2d_v2.onnx.data',
+          data: modelDataUrl,
         },
       ],
     });
@@ -70,7 +70,12 @@ async function initSession(): Promise<ort.InferenceSession> {
 let isProcessing = false;
 let nextRequest: AIInput | null = null;
 
-self.onmessage = (event: MessageEvent<AIInput>) => {
+self.onmessage = (event: MessageEvent<any>) => {
+  if (event.data && event.data.type === 'init') {
+    modelUrl = event.data.modelUrl;
+    modelDataUrl = event.data.modelDataUrl;
+    return;
+  }
   nextRequest = event.data;
   processQueue();
 };

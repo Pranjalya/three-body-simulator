@@ -66,6 +66,14 @@ export default function App() {
     physicsWorkerRef.current = physicsWorker;
     aiWorkerRef.current = aiWorker;
 
+    // Send initialization parameters (absolute paths derived from Vite's base path) to AI worker
+    const base = import.meta.env.BASE_URL;
+    aiWorker.postMessage({
+      type: 'init',
+      modelUrl: new URL(`${base}pinn_model_2d_v2.onnx`, window.location.origin).href,
+      modelDataUrl: new URL(`${base}pinn_model_2d_v2.onnx.data`, window.location.origin).href,
+    });
+
     physicsWorker.onmessage = (e: MessageEvent) => {
       setPhysicsTrajectory(e.data.trajectory);
       setPhysicsLatency(e.data.duration);
