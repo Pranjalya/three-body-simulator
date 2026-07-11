@@ -104,6 +104,7 @@ def main():
     parser.add_argument("--use_wandb", type=str, default="true", choices=["true", "false"], help="Enable Weights & Biases logging.")
     parser.add_argument("--wandb_project", type=str, default="three-body-pinn", help="Wandb project name.")
     parser.add_argument("--wandb_name", type=str, default=None, help="Wandb run name.")
+    parser.add_argument("--tensorboard_dir", type=str, default=None, help="Tensorboard directory")
     parser.add_argument("--scheduler_patience", type=int, default=15, help="Epochs to wait for val loss improvement before LR decay.")
     parser.add_argument("--early_stopping_patience", type=int, default=50, help="Epochs to wait for val loss improvement before early stopping.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
